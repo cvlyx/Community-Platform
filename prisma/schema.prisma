@@ -1,0 +1,222 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SERVICE_PROVIDER
+  SERVICE_SEEKER
+  ADMIN
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  COMMUNITY_VERIFIED
+  SYSTEM_VERIFIED
+}
+
+enum JobStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+// User model - handles authentication and basic user info
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  role          UserRole  @default(SERVICE_SEEKER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  profile       Profile?
+  jobsPosted    Job[]     @relation("JobPoster")
+  applications  Application[]
+  reviewsGiven  Review[]  @relation("Reviewer")
+  reviewsReceived Review[] @relation("Reviewee")
+  verifications Verification[]
+  adminActions  AdminAction[]
+}
+
+// NextAuth required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Profile model - extended information for service providers
+model Profile {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  bio               String?            @db.Text
+  phoneNumber       String?
+  location          String?
+  district          String?
+  city              String?
+  experience        String?            @db.Text
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills            Skill[]
+  verifications     Verification[]
+}
+
+// Skill model - skills that providers can have
+model Skill {
+  id        String   @id @default(cuid())
+  name      String
+  category  String?  // e.g., "Electrical", "Plumbing", "Education", etc.
+  profileId String
+  createdAt DateTime @default(now())
+
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([category])
+}
+
+// Job model - jobs posted by service seekers
+model Job {
+  id          String            @id @default(cuid())
+  title       String
+  description String             @db.Text
+  location    String?
+  district    String?
+  city        String?
+  status      JobStatus          @default(OPEN)
+  postedById  String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  completedAt DateTime?
+
+  postedBy    User               @relation("JobPoster", fields: [postedById], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([postedById])
+  @@index([status])
+  @@index([district, city])
+}
+
+// Application model - providers applying to jobs
+model Application {
+  id          String            @id @default(cuid())
+  jobId       String
+  applicantId String
+  message     String?            @db.Text
+  status      ApplicationStatus  @default(PENDING)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  job         Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicant   User              @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, applicantId])
+  @@index([applicantId])
+  @@index([jobId])
+}
+
+// Review model - ratings and feedback
+model Review {
+  id          String   @id @default(cuid())
+  jobId       String?  // Optional - can review without a job
+  rating      Int      // 1-5 stars
+  comment     String?  @db.Text
+  reviewerId  String
+  revieweeId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reviewer    User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee    User     @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@index([revieweeId])
+  @@index([reviewerId])
+}
+
+// Verification model - trust and verification records
+model Verification {
+  id          String             @id @default(cuid())
+  profileId   String
+  verifiedBy  String?            // User ID of verifier (admin or community leader)
+  type        VerificationStatus
+  notes       String?            @db.Text
+  evidence    String?            @db.Text // References, documents, etc.
+  createdAt   DateTime           @default(now())
+  verifiedAt  DateTime?
+
+  profile     Profile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  verifier    User?              @relation(fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  @@index([profileId])
+  @@index([verifiedBy])
+}
+
+// AdminAction model - audit trail for admin actions
+model AdminAction {
+  id          String   @id @default(cuid())
+  adminId     String
+  actionType  String   // e.g., "VERIFY_USER", "FLAG_USER", "REMOVE_USER", "RESOLVE_DISPUTE"
+  targetUserId String?
+  description String?  @db.Text
+  metadata    String?  @db.Text // JSON string for additional data
+  createdAt   DateTime @default(now())
+
+  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([targetUserId])
+  @@index([actionType])
+}

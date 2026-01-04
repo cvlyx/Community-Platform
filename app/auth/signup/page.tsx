@@ -10,7 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserRole } from "@prisma/client"
 
 export default function SignUpPage() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    email: string
+    role: UserRole
+  }>({
     name: "",
     email: "",
     role: UserRole.SERVICE_SEEKER,

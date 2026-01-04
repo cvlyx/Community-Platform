@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { UserRole } from "@/types/user"
+import { UserRole } from "@prisma/client"
 import { User, LogOut, Home, Briefcase, Users, Shield } from "lucide-react"
 
 export function Nav() {

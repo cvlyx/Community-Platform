@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { MapPin, CheckCircle } from "lucide-react"
-import { VerificationStatus } from "@/types/user"
+import { VerificationStatus } from "@prisma/client"
 
 interface Provider {
   id: string

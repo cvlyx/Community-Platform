@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { UserRole, VerificationStatus } from "@/types/user"
+import { UserRole, VerificationStatus } from "@prisma/client"
 import { X } from "lucide-react"
 
 interface ProfileFormProps {
